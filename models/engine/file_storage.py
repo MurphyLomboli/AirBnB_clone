@@ -1,61 +1,61 @@
 #!/usr/bin/python3
-"""This module contains the Filetorage class"""
+"""This module defines a class to manage file storage for hbnb clone"""
 import json
-from models.base_model import BaseModel
-from models.user import User
-from models.place import Place
-from models.state import State
-from models.city import City
-from models.amenity import Amenity
-from models.review import Review
 
 
 class FileStorage:
-    """The FileStorage class that serializes instances to
-        a JSON file and deserializes JSON file to instances
-        Args:
-            __file_path: Private class attribute
-             string - path to the JSON file
-             __objects: private class attribute
-             dictionary - empty but will store all objects
-        """
-
-    __file_path = "file.json"
+    """This class manages storage of hbnb models in JSON format"""
+    __file_path = 'file.json'
     __objects = {}
 
-    def all(self):
-        """ returns the dictionary __objects """
-
-        return FileStorage.__objects
+    def all(self, cls=None):
+        """Returns a dictionary of models currently in storage"""
+        if cls is None:
+            return FileStorage.__objects
+        else:
+            return {k: v for k, v in FileStorage.__objects.items()
+                    if isinstance(v, cls)}
 
     def new(self, obj):
-        """sets in __objects the obj with key <obj class name>.id"""
-
-        key = f"{obj.__class__.__name__}.{obj.id}"
-        FileStorage.__objects[key] = obj
+        """Adds new object to storage dictionary"""
+        self.all().update({obj.to_dict()['__class__'] + '.' + obj.id: obj})
 
     def save(self):
-        """ serializes __objects to the JSON file """
-        path = FileStorage.__file_path
-
-        new_obj = {k: FileStorage.__objects[k].to_dict(
-        ) for k in FileStorage.__objects.keys()}
-
-        with open(path, "w") as file:
-            json.dump(new_obj, file)
+        """Saves storage dictionary to file"""
+        with open(FileStorage.__file_path, 'w') as f:
+            temp = {}
+            temp.update(FileStorage.__objects)
+            for key, val in temp.items():
+                temp[key] = val.to_dict()
+            json.dump(temp, f)
 
     def reload(self):
-        """Deserialize the JSON file __file_path to __objects, if it exists."""
+        """Loads storage dictionary from file"""
+        from models.base_model import BaseModel
+        from models.user import User
+        from models.place import Place
+        from models.state import State
+        from models.city import City
+        from models.amenity import Amenity
+        from models.review import Review
 
-        path = FileStorage.__file_path
-
+        classes = {
+            'BaseModel': BaseModel, 'User': User, 'Place': Place,
+            'State': State, 'City': City, 'Amenity': Amenity,
+            'Review': Review
+        }
         try:
-            with open(path) as file:
-                object_json = json.load(file)
-                for obj in object_json.values():
-                    class_name = obj['__class__']
-                    del obj['__class__']
-                    self.new(eval(class_name)(**obj))
-
+            temp = {}
+            with open(FileStorage.__file_path, 'r') as f:
+                temp = json.load(f)
+                for key, val in temp.items():
+                    self.all()[key] = classes[val['__class__']](**val)
         except FileNotFoundError:
-            return
+            pass
+
+    def delete(self, obj=None):
+        """Deletes obj from __objects if it is inside"""
+        if obj is not None:
+            key = obj.__class__.__name__ + "." + obj.id
+            if key in self.__objects:
+                del self.__objects[key]
