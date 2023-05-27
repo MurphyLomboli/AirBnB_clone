@@ -12,7 +12,7 @@ xx-web-01 and xx-web-02
 import os
 from fabric.api import *
 
-api.env.hosts = ['163945-web-01', '163945-web-02']
+#api.env.hosts = ['163945-web-01', '163945-web-02']
 env.user = "ubuntu"
 env.hosts = ['107.23.119.223', '54.84.33.47']
 
