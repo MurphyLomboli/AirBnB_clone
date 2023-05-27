@@ -1,53 +1,52 @@
 #!/usr/bin/env bash
-# Write a Bash script that sets up your web servers for the deployment of web_static
+#Write a Bash script that sets up your web servers for the deployment of web_static. It must:
 
-if ! dpkg -s nginx > /dev/null 2>&1; then
-    sudo apt-get update
-    sudo apt-get -y install nginx
-fi
+sudo apt-get update
+sudo apt-get -y install nginx
 
-# Create directories
+sudo mkdir -p /data/
+sudo mkdir -p /data/web_static/
+sudo mkdir -p /data/web_static/releases/
+sudo mkdir -p  /data/web_static/shared/
 sudo mkdir -p /data/web_static/releases/test/
-sudo mkdir -p /data/web_static/shared/
-sudo mkdir -p /data/web_static/current/
+sudo touch /data/web_static/releases/test/index.html
+sudo touch /var/www/html/404.html
+echo "Ceci n'est pas une page" > /var/www/html/404
+content='<!DOCTYPE html>
+<html lang="en">
+        <head>
+                <title>Fake website</title>
+        </head>
+        <body>Just testing</body>
+</html>'
+echo "$content" > /data/web_static/releases/test/index.html
+sudo ln -sf /data/web_static/releases/test/ /data/web_static/current
+chown -R ubuntu:ubuntu /data/
 
-# Create a fake HTML file for testing
-echo "Fake HTML content" | sudo tee /data/web_static/releases/test/index.html > /dev/null
+config="server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+	root /var/www/html;
+	# Add index.php to the list if you are using PHP
+	index index.html index.htm index.nginx-debian.html;
 
-# Set ownership of /data/ folder to www-data user and group
-sudo chown -R www-data:www-data /data/
+	server_name _;
+	add_header X-Served-By $HOSTNAME;
 
-# Update Nginx configuration
-CONFIG_CONTENT=$(cat <<EOM
-user www-data;
-worker_processes auto;
-pid /run/nginx.pid;
+	location / {
+		try_files \$uri \$uri/ =404;
+	}
+	if (\$request_filename ~ redirect_me){
+			rewrite ^ https://www.youtube.com/watch?v=QH2-TGUlwu4 permanent;
+	}
+        location /hbnb_static {
+                alias /data/web_static/current;
+        }
+	error_page 404 /404.html;
+	location = /404.html{
+		internal;
+	}
+}"
 
-events {
-    worker_connections 768;
-}
-
-http {
-    sendfile on;
-    tcp_nopush on;
-    tcp_nodelay on;
-    keepalive_timeout 65;
-    types_hash_max_size 2048;
-
-    include /etc/nginx/mime.types;
-    default_type application/octet-stream;
-
-    access_log /var/log/nginx/access.log;
-    error_log /var/log/nginx/error.log;
-
-    gzip on;
-    gzip_disable "msie6";
-    include /etc/nginx/conf.d/*.conf;
-    include /etc/nginx/sites-enabled/*;
-}
-EOM
-)
-echo "$CONFIG_CONTENT" | sudo tee /etc/nginx/nginx.conf > /dev/null
-
-# Restart Nginx
+echo -e "$config" > /etc/nginx/sites-enabled/default
 sudo service nginx restart
