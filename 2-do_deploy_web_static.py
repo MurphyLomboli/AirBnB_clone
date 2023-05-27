@@ -1,49 +1,43 @@
 #!/usr/bin/python3
-"""
-Write a Fabric script (based on the file 1-pack_web_static.py)
-that distributes an archive to your web servers,
-using the function do_deploy:
-Prototype: def do_deploy(archive_path):
-Returns False if the file at the path archive_path doesn’t exist
-You must use this script to deploy it on your servers:
-xx-web-01 and xx-web-02
-"""
+"""Deploy an archive of static html to my web servers with Fabric3"""
 
+from fabric import api
+from fabric.contrib import files
 import os
-from fabric.api import *
 
-#api.env.hosts = ['163945-web-01', '163945-web-02']
-env.user = "ubuntu"
-env.hosts = ['107.23.119.223', '54.84.33.47']
+
+api.env.hosts = ['107.23.119.223', '54.84.33.47']
+api.env.user = 'ubuntu'
+api.env.key_filename = '~/.ssh/holberton'
 
 
 def do_deploy(archive_path):
-    """
-    Deploys an archive file to the server
+    """Function to transfer `archive_path` to web servers.
 
     Args:
-        archive_path: path to the archive file to be deployed
-        to the server
-    Returns:
-        True: if successful
-        False: if otherwise
-    """
+        archive_path (str): path of the .tgz file to transfer
 
-    if not os.path.exists(archive_path):
+    Returns: True on success, False otherwise.
+    """
+    if not os.path.isfile(archive_path):
         return False
-    try:
-        put(archive_path, '/tmp/')
-        split_slash = archive_path.split("/")[-1]
-        remove_tgz = split_slash.split(".")[0]
-        directory = '/data/web_static/releases/'
-        run('mkdir -p {}{}'.format(directory, remove_tgz))
-        run('tar -xzf /tmp/{0}.tgz -C {1}{0}'.format(remove_tgz, directory))
-        run('rm /tmp/{}.tgz'.format(remove_tgz))
-        run('mv {0}{1}/web_static/* {0}{1}'.format(directory, remove_tgz))
-        run('rm -rf {}{}/web_static'.format(directory, remove_tgz))
-        run('rm -rf /data/web_static/current')
-        run('ln -s {}{}\
-                /data/web_static/current'.format(directory, remove_tgz))
-        return True
-    except Exception as e:
-        return False
+    with api.cd('/tmp'):
+        basename = os.path.basename(archive_path)
+        root, ext = os.path.splitext(basename)
+        outpath = '/data/web_static/releases/{}'.format(root)
+        try:
+            putpath = api.put(archive_path)
+            if files.exists(outpath):
+                api.run('rm -rdf {}'.format(outpath))
+            api.run('mkdir -p {}'.format(outpath))
+            api.run('tar -xzf {} -C {}'.format(putpath[0], outpath))
+            api.run('rm -f {}'.format(putpath[0]))
+            api.run('mv -u {}/web_static/* {}'.format(outpath, outpath))
+            api.run('rm -rf {}/web_static'.format(outpath))
+            api.run('rm -rf /data/web_static/current')
+            api.run('ln -sf {} /data/web_static/current'.format(outpath))
+            print('New version deployed!')
+        except:
+            return False
+        else:
+            return True
