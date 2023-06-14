@@ -1,6 +1,14 @@
 #!/usr/bin/python3
-"""__init__ magic method for models directory"""
-from models.engine.file_storage import FileStorage
+"""
+Contains the entry point of the command interpreter
+"""
+import os
 
-storage = FileStorage()
+if os.environ.get('HBNB_TYPE_STORAGE') == 'db':
+    from models.engine.db_storage import DBStorage
+    storage = DBStorage()
+else:
+    from models.engine.file_storage import FileStorage
+    storage = FileStorage()
+
 storage.reload()
